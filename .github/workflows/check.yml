@@ -14,9 +14,9 @@ jobs:
         run: |
           set -eu
           test ! -e .gitmodules
-          links=$(git ls-files -s | awk '$1 == "120000" {print $4}')
-          [ -z "$links" ] || { echo "symlinks are not allowed: $links"; exit 1; }
-          other=$(git ls-files | grep -vE '^(\.github/(CODEOWNERS|workflows/[^/]+\.yml)|([^/]+/)*[^/]+\.(ipynb|py|md))$' || true)
+          links=$(git ls-files -s | awk '$1 == "120000" || $1 == "160000" {print $4}')
+          [ -z "$links" ] || { echo "symlinks and submodule gitlinks are not allowed: $links"; exit 1; }
+          other=$(git ls-files | grep -vE '^(\.github/(CODEOWNERS|workflows/check\.yml)|([^/]+/)*[^/]+\.(ipynb|py|md))$' || true)
           [ -z "$other" ] || { echo "only .ipynb, .py and .md files are allowed: $other"; exit 1; }
           big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
           [ -z "$big" ] || { echo "files over 1 MiB (data?): $big"; exit 1; }
@@ -27,8 +27,13 @@ jobs:
           bad = []
           for p in sorted(pathlib.Path(".").rglob("*.ipynb")):
               nb = json.loads(p.read_text(encoding="utf-8"))
+              if nb.get("nbformat") != 4:
+                  bad.append(f"{p}: nbformat must be 4")
+                  continue
+              if nb.get("metadata", {}).get("widgets"):
+                  bad.append(f"{p}: notebook metadata.widgets must be empty")
               for i, c in enumerate(nb.get("cells", [])):
-                  if c.get("outputs") or c.get("execution_count") or c.get("attachments"):
+                  if c.get("outputs") or c.get("execution_count") is not None or c.get("attachments"):
                       bad.append(f"{p}: cell {i} has outputs, an execution count or attachments")
           for p in sorted(pathlib.Path(".").rglob("*.py")):
               py_compile.compile(str(p), doraise=True)
@@ -40,8 +45,35 @@ jobs:
           EOF
       - name: No direct network, shell or environment access
         run: |
-          # A tripwire for review, not a sandbox: examples talk to the platform through the
-          # mip client only, never read the environment (where the token is) or shell out.
-          if git grep -nE 'os\.environ|getenv\(|import requests|requests\.|urllib|http\.client|import socket|subprocess|os\.system|"\s*[!%](pip|sh|bash|curl|wget)\b' -- '*.py' '*.ipynb'; then
-            echo "direct network, shell or environment access; use the mip client"; exit 1
-          fi
+          # A tripwire for review, not a sandbox: it only catches the obvious. Examples talk to
+          # the platform through the mip client only, never read the environment (where the
+          # token is) or shell out. Code-owner review is the gate; the notebook network policy
+          # and token scope are the runtime control.
+          python3 - <<'EOF'
+          import json, pathlib, re, sys
+          pat = re.compile(
+              r'os\.environ|getenv\(|import requests|requests\.|urllib|http\.client|import socket'
+              r'|subprocess|os\.system|"\s*[!%](pip|sh|bash|curl|wget)\b'
+              r'|__import__|importlib|\bexec\(|\beval\(|get_ipython|os\.popen|os\.spawn'
+              r'|from os import|import os as|_socket|from (requests|urllib|http|socket|subprocess)\b'
+              r'|/proc/|\._transport|\._session')
+          bad = []
+          for p in sorted(pathlib.Path(".").rglob("*")):
+              if p.suffix == ".py":
+                  cells = [(p.read_text(encoding="utf-8"), True)]
+              elif p.suffix == ".ipynb":
+                  nb = json.loads(p.read_text(encoding="utf-8"))
+                  cells = [("".join(c["source"]) if isinstance(c["source"], list) else c["source"],
+                            c["cell_type"] == "code") for c in nb["cells"]]
+              else:
+                  continue
+              for n, (src, code) in enumerate(cells):
+                  for line in src.splitlines():
+                      t = line.strip()
+                      # a "#" comment line never starts with ! or %, so "# %%" markers pass
+                      shell = code and t[:1] in ("!", "%") and not t.startswith("%matplotlib")
+                      if pat.search(line) or shell:
+                          bad.append(f"{p}: cell {n}: {t[:80]}")
+          print("\n".join(bad))
+          sys.exit(1 if bad else 0)
+          EOF

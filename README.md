@@ -20,11 +20,16 @@ a merge to `main`). You cannot edit the files there. To adapt one, open it and u
 `main` is copied into every notebook in every federation, and users run it holding their
 platform token. So changes go through a pull request, need a code-owner approval, and must pass
 the `check` workflow (only `.ipynb`, `.py` and `.md` files; notebooks with cleared outputs; no
-symlinks, no files over 1 MiB, no direct network, shell or environment access).
+symlinks, no files over 1 MiB; a grep for direct network, shell or environment access).
+
+CI is a tripwire, not a sandbox: it only catches the obvious. Code-owner review is the gate.
+The notebook network policy and the token scope are the runtime control.
 
 Review checklist:
 
 - outputs and execution counts are cleared;
 - there is no data and no patient-level printouts;
 - the platform is reached only through `mip`;
-- nothing is federation-specific (it runs in every federation).
+- nothing is federation-specific (it runs in every federation);
+- no text aimed at AI agents or users that tells them to run, fetch or send anything;
+  reviewers read markdown cells, docstrings and comments too.
