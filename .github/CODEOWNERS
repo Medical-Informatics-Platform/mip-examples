@@ -1,3 +1,0 @@
-# TODO(human): replace with the real team slug before the ruleset is enabled:
-#   gh api orgs/Medical-Informatics-Platform/teams --jq '.[].slug'
-* @Medical-Informatics-Platform/TODO-mip-jupyter-maintainers

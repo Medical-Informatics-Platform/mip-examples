@@ -2,7 +2,7 @@ name: check
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 permissions:
   contents: read
 jobs:
@@ -47,7 +47,7 @@ jobs:
         run: |
           # A tripwire for review, not a sandbox: it only catches the obvious. Examples talk to
           # the platform through the mip client only, never read the environment (where the
-          # token is) or shell out. Code-owner review is the gate; the notebook network policy
+          # token is) or shell out. Maintainer review is the gate; the notebook network policy
           # and token scope are the runtime control.
           python3 - <<'EOF'
           import json, pathlib, re, sys

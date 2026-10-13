@@ -12,17 +12,17 @@ They use the `mip` Python client to reach the platform; they never touch data di
 ## Using them
 
 This repo is synced read-only into every notebook, at `~/work/examples/` (about a minute after
-a merge to `main`). You cannot edit the files there. To adapt one, open it and use
+a merge to `master`). You cannot edit the files there. To adapt one, open it and use
 **File > Save As** into `scratch/`, then edit your copy.
 
 ## Contributing
 
-`main` is copied into every notebook in every federation, and users run it holding their
-platform token. So changes go through a pull request, need a code-owner approval, and must pass
+`master` is copied into every notebook in every federation, and users run it holding their
+platform token. So changes go through a pull request, need a maintainer's approval, and must pass
 the `check` workflow (only `.ipynb`, `.py` and `.md` files; notebooks with cleared outputs; no
 symlinks, no files over 1 MiB; a grep for direct network, shell or environment access).
 
-CI is a tripwire, not a sandbox: it only catches the obvious. Code-owner review is the gate.
+CI is a tripwire, not a sandbox: it only catches the obvious. Maintainer review is the gate.
 The notebook network policy and the token scope are the runtime control.
 
 Review checklist:
