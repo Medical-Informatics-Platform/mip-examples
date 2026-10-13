@@ -1,0 +1,47 @@
+name: check
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Only notebooks, scripts and docs; no symlinks or submodules
+        run: |
+          set -eu
+          test ! -e .gitmodules
+          links=$(git ls-files -s | awk '$1 == "120000" {print $4}')
+          [ -z "$links" ] || { echo "symlinks are not allowed: $links"; exit 1; }
+          other=$(git ls-files | grep -vE '^(\.github/(CODEOWNERS|workflows/[^/]+\.yml)|([^/]+/)*[^/]+\.(ipynb|py|md))$' || true)
+          [ -z "$other" ] || { echo "only .ipynb, .py and .md files are allowed: $other"; exit 1; }
+          big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
+          [ -z "$big" ] || { echo "files over 1 MiB (data?): $big"; exit 1; }
+      - name: Notebooks are cleared and scripts compile
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, py_compile, sys
+          bad = []
+          for p in sorted(pathlib.Path(".").rglob("*.ipynb")):
+              nb = json.loads(p.read_text(encoding="utf-8"))
+              for i, c in enumerate(nb.get("cells", [])):
+                  if c.get("outputs") or c.get("execution_count") or c.get("attachments"):
+                      bad.append(f"{p}: cell {i} has outputs, an execution count or attachments")
+          for p in sorted(pathlib.Path(".").rglob("*.py")):
+              py_compile.compile(str(p), doraise=True)
+          a = pathlib.Path("algorithm_examples.py")
+          if not a.is_file() or "# %%" not in a.read_text(encoding="utf-8"):
+              bad.append("algorithm_examples.py must exist with # %% cell markers (jupyter-mcp default template)")
+          print("\n".join(bad))
+          sys.exit(1 if bad else 0)
+          EOF
+      - name: No direct network, shell or environment access
+        run: |
+          # A tripwire for review, not a sandbox: examples talk to the platform through the
+          # mip client only, never read the environment (where the token is) or shell out.
+          if git grep -nE 'os\.environ|getenv\(|import requests|requests\.|urllib|http\.client|import socket|subprocess|os\.system|"\s*[!%](pip|sh|bash|curl|wget)\b' -- '*.py' '*.ipynb'; then
+            echo "direct network, shell or environment access; use the mip client"; exit 1
+          fi
