@@ -78,26 +78,23 @@ jobs:
           sys.exit(1 if bad else 0)
           EOF
   publish:
-    # After the checks pass on master: the image ghcr.io/medical-informatics-platform/mip-examples,
-    # data only (FROM scratch): the repository without .github, plus the commit SHA in .rev.
-    # mip-infra's mip-examples-sync CronJob mounts it as an image volume every minute and copies
-    # it onto the shared examples volume; nothing in the image runs. GITHUB_TOKEN pushes it, so
-    # the right to publish is the right to push to this repository.
+    # After the checks pass on master: the image hbpmip/mip-examples on Docker Hub, data only
+    # (FROM scratch): the repository without .github, plus the commit SHA in .rev. mip-infra's
+    # mip-examples-sync CronJob mounts it as an image volume every minute and copies it onto the
+    # shared examples volume; nothing in the image runs.
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: check
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     # Pushes publish in order, so latest never goes back to an older commit.
     concurrency: {group: publish, cancel-in-progress: false}
     env:
-      IMAGE: ghcr.io/medical-informatics-platform/mip-examples
+      IMAGE: docker.io/hbpmip/mip-examples
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Build and push the examples image
         env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           set -eu
           ctx="$RUNNER_TEMP/ctx"
@@ -108,5 +105,5 @@ jobs:
             "LABEL org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             'COPY src/ /' > "$ctx/Dockerfile"
           docker build -t "$IMAGE:latest" -t "$IMAGE:$GITHUB_SHA" "$ctx"
-          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "$DOCKER_PASSWORD" | docker login docker.io -u "$DOCKER_USERNAME" --password-stdin
           docker push --all-tags "$IMAGE"
