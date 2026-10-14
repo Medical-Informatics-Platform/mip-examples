@@ -77,3 +77,31 @@ jobs:
           print("\n".join(bad))
           sys.exit(1 if bad else 0)
           EOF
+  publish:
+    # After the checks pass on master: the image hbpmip/mip-examples:latest, busybox plus the
+    # repository (without .github) at /src and the commit SHA in /src/.rev. The CronJob
+    # mip-examples-sync in mip-infra copies it every minute onto the shared examples volume.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: check
+    runs-on: ubuntu-latest
+    # Pushes publish in order, so latest never goes back to an older commit.
+    concurrency: {group: publish, cancel-in-progress: false}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push hbpmip/mip-examples
+        run: |
+          set -eu
+          ctx="$RUNNER_TEMP/ctx"
+          mkdir -p "$ctx/src"
+          git archive HEAD -- . ':!.github' | tar -x -C "$ctx/src"
+          echo "$GITHUB_SHA" > "$ctx/src/.rev"
+          # busybox gives the CronJob its shell; pinned by digest.
+          printf '%s\n' \
+            'FROM busybox:1.37.0-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092' \
+            'COPY src /src' > "$ctx/Dockerfile"
+          docker build -t hbpmip/mip-examples:latest -t "hbpmip/mip-examples:$GITHUB_SHA" "$ctx"
+          docker push --all-tags hbpmip/mip-examples
