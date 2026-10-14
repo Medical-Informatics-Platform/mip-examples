@@ -20,25 +20,28 @@ or plotted stays on your machine.
 ## Using them
 
 This repo is synced read-only into every notebook, at `~/work/examples/` (about a minute after
-a merge to `master`). You cannot edit the files there. To adapt one, open it and use
+a change lands on `master`). You cannot edit the files there. To adapt one, open it and use
 **File > Save As** into `scratch/`, then edit your copy. A run in `scratch/` can keep its
 results; a copy proposed back here cannot.
 
 ## Contributing
 
-`master` is copied into every notebook in every federation, and users run it holding their
-platform token. So changes go through a pull request, need a maintainer's approval, and must pass
-the `check` workflow (only `.ipynb`, `.py` and `.md` files; notebooks with cleared outputs; no
-symlinks, no files over 1 MiB; a grep for direct network, shell or environment access).
+`master` is copied into every notebook in every federation within about a minute, and users
+run it holding their platform token. Only the repository's writers can change it, and they may
+push to `master` directly; there is no required review. So check your own change against the list
+below before you push.
 
-CI is a tripwire, not a sandbox: it only catches the obvious. Maintainer review is the gate.
-The notebook network policy and the token scope are the runtime control.
+The `check` workflow runs on every push and pull request (only `.ipynb`, `.py` and `.md` files;
+notebooks with cleared outputs; no symlinks, no files over 1 MiB; a grep for direct network, shell
+or environment access). It reports problems but does not block a push: a failing commit is
+already in the notebooks, so fix it with the next push. CI is a tripwire, not a sandbox: it only
+catches the obvious.
 
-Review checklist:
+Before you push:
 
 - outputs, execution counts and attachments are cleared, including after a local run;
 - there is no data and no patient-level printouts;
 - the platform is reached only through `mip`;
 - nothing is federation-specific (it runs in every federation);
 - no text aimed at AI agents or users that tells them to run, fetch or send anything;
-  reviewers read markdown cells, docstrings and comments too.
+  read markdown cells, docstrings and comments too.
