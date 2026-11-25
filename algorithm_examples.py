@@ -1,5 +1,5 @@
 """
-MIP Pipeline — full stack examples (30 algorithms + preprocessing).
+MIP Pipeline — full stack examples (29 algorithms + preprocessing).
 
 Run from the Jupyter workspace root:
   python examples/algorithm_examples.py
@@ -375,13 +375,6 @@ def run_ml(ctx: dict[str, Any]) -> None:
 
     run_step("kmeans", lambda: p.kmeans(features=[age, nihss_adm, nihss_24h], k=3))
     run_step("pca", lambda: p.pca(variables=[age, nihss_adm, nihss_24h]))
-    run_step(
-        "pca_with_transformation",
-        lambda: p.pca_with_transformation(
-            variables=[age, nihss_adm, nihss_24h],
-            data_transformation={"center": [age, nihss_adm, nihss_24h]},
-        ),
-    )
     run_step(
         "naive_bayes_gaussian",
         lambda: p.naive_bayes_gaussian(features=[age, nihss_adm], target=sex),
